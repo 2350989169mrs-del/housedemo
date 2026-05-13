@@ -29,3 +29,8 @@ application.properties
 # 多环境配置文件（开发/生产环境）
 application-*.yml
 application-*.properties
+# IntelliJ IDEA
+.idea/
+
+# 编译输出
+target/
