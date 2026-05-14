@@ -13,6 +13,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+/**
+ * 用户服务实现 —— 注册、登录校验、个人中心、改密、资料编辑
+ */
 @Service
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IUserService {
     @Autowired
@@ -34,25 +37,30 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
     @Autowired
     private ShowingRecordMapper showingRecordMapper;
 
+    // ==================== 注册 ====================
+
     @Override
     @Transactional
     public void register(String account, String password, String name) {
-        // 手机号唯一性检查
+        // 1. 手机号唯一性检查
         if (userMapper.selectCount(new LambdaQueryWrapper<User>()
                 .eq(User::getAccount, account)) > 0) {
             throw new MyException(ErrorType.INSERT_ERROR, "手机号已被注册");
         }
 
+        // 2. 构建用户对象
         User user = new User();
         user.setAccount(account);
-        user.setPassword(BCrypt.hashpw(password, BCrypt.gensalt()));
+        user.setPassword(BCrypt.hashpw(password, BCrypt.gensalt())); // BCrypt 加密
         user.setName(StringUtils.hasText(name) ? name : null);
-        user.setUserType(1);             // 普通用户
+        user.setUserType(1);             // 普通用户（完善资料后升级为会员 userType=2）
         user.setAccountStatus(1);        // 正常
         user.setRoleId(null);            // 允许为空
         // create_time 由 MyBatis-Plus 自动填充
         userMapper.insert(user);
     }
+
+    // ==================== 个人中心 ====================
 
     @Override
     public UserCenterVO getUserCenter(Integer userId) {
@@ -77,7 +85,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
                 break;
             case 2: // 会员
                 fillCommonUserInfo(userId, vo);
-                // 统计发布房源数
                 vo.setPublishCount(
                         houseMapper.selectCount(new LambdaQueryWrapper<House>()
                                 .eq(House::getPublisherId, userId))
@@ -109,6 +116,48 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 
         return vo;
     }
+
+    // ==================== 修改密码 ====================
+
+    /**
+     * 修改密码：验证旧密码正确后，BCrypt 加密新密码并更新
+     */
+    @Override
+    @Transactional
+    public void changePassword(Integer userId, String oldPassword, String newPassword) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new MyException(ErrorType.ERROR, "用户不存在");
+        }
+        if (!BCrypt.checkpw(oldPassword, user.getPassword())) {
+            throw new MyException(ErrorType.ERROR, "旧密码错误");
+        }
+        user.setPassword(BCrypt.hashpw(newPassword, BCrypt.gensalt()));
+        userMapper.updateById(user);
+    }
+
+    // ==================== 更新个人资料 ====================
+
+    /**
+     * 更新头像和昵称，允许只传其中一个
+     */
+    @Override
+    @Transactional
+    public void updateProfile(Integer userId, String avatar, String name) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new MyException(ErrorType.ERROR, "用户不存在");
+        }
+        if (StringUtils.hasText(avatar)) {
+            user.setAvatar(avatar);
+        }
+        if (StringUtils.hasText(name)) {
+            user.setName(name);
+        }
+        userMapper.updateById(user);
+    }
+
+    // ==================== 私有辅助方法 ====================
 
     private void fillCommonUserInfo(Integer userId, UserCenterVO vo) {
         UserInfo info = userInfoMapper.selectOne(

@@ -59,4 +59,23 @@ public class AgentInfoController {
         return new ResultData("操作成功");
     }
 
+    @PostMapping
+    public ResultData save(@RequestBody AgentInfo agentInfo) {
+        boolean success = agentInfoService.save(agentInfo);
+        if (success) return new ResultData("添加成功");
+        return new ResultData(500, "添加失败");
+    }
+
+    @PutMapping
+    public ResultData update(@RequestBody AgentInfo agentInfo) {
+        boolean success = agentInfoService.updateById(agentInfo);
+        if (success) return new ResultData("修改成功");
+        return new ResultData(500, "修改失败");
+    }
+
+    @DeleteMapping("/{id}")
+    public ResultData delete(@PathVariable Integer id) {
+        agentInfoService.removeById(id);
+        return new ResultData("删除成功");
+    }
 }

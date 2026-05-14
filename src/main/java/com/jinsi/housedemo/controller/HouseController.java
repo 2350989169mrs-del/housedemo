@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/house")//列出你在这个项目中所有的技术决策
+@RequestMapping("/api/house")
 public class HouseController {
 
     @Autowired
@@ -40,6 +40,35 @@ public class HouseController {
         return new ResultData(404, "数据不存在");
     }
 
+    // ==================== 会员：查看自己发布的房源 ====================
+
+    @GetMapping("/my-listings")
+    public ResultData myListings(@RequestAttribute Integer userId) {
+        List<House> list = houseService.listByPublisher(userId);
+        return new ResultData("data", list, "查询成功");
+    }
+
+    // ==================== 下架房源（经纪人/管理员/会员自己） ====================
+
+    @PutMapping("/{id}/delist")
+    public ResultData delist(@PathVariable Integer id,
+                             @RequestAttribute Integer userId,
+                             @RequestAttribute Integer userType) {
+        houseService.delist(id, userId, userType);
+        return new ResultData("房源已下架");
+    }
+
+    // ==================== 重新上架 ====================
+
+    @PutMapping("/{id}/relist")
+    public ResultData relist(@PathVariable Integer id,
+                             @RequestAttribute Integer userId,
+                             @RequestAttribute Integer userType) {
+        houseService.relist(id, userId, userType);
+        return new ResultData("房源已上架");
+    }
+
+
 
 
     @PutMapping
@@ -52,8 +81,10 @@ public class HouseController {
     }
 
     @DeleteMapping("/{id}")
-    public ResultData delete(@PathVariable Integer id) {
-        boolean success = houseService.removeById(id);
+    public ResultData delete(@PathVariable Integer id,
+                             @RequestAttribute Integer userId,
+                             @RequestAttribute Integer userType) {
+        boolean success = houseService.deleteHouse(id, userId, userType);
         if (success) {
             return new ResultData("删除成功");
         }

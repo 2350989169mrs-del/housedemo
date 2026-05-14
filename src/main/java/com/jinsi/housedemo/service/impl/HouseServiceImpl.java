@@ -408,4 +408,56 @@ public class HouseServiceImpl extends ServiceImpl<HouseMapper, House> implements
         resultPage.setRecords(voList);
         return resultPage;
     }
+
+    // ==================== 会员查看自己发布的房源 ====================
+
+    @Override
+    public List<House> listByPublisher(Integer userId) {
+        return this.list(new LambdaQueryWrapper<House>()
+                .eq(House::getPublisherId, userId)
+                .orderByDesc(House::getListingTime));
+    }
+
+    // ==================== 下架房源 ====================
+
+    @Override
+    @Transactional
+    public void delist(Integer houseId, Integer userId, Integer userType) {
+        House house = houseMapper.selectById(houseId);
+        if (house == null) throw new MyException(ErrorType.ERROR, "房源不存在");
+        // 会员只能下架自己发布的，经纪人/管理员可下架任何
+        if (userType == 2 && !house.getPublisherId().equals(userId)) {
+            throw new MyException(ErrorType.ERROR, "只能下架自己的房源");
+        }
+        house.setSalesStatus(0);
+        houseMapper.updateById(house);
+    }
+
+    // ==================== 重新上架 ====================
+
+    @Override
+    @Transactional
+    public void relist(Integer houseId, Integer userId, Integer userType) {
+        House house = houseMapper.selectById(houseId);
+        if (house == null) throw new MyException(ErrorType.ERROR, "房源不存在");
+        if (house.getSalesStatus() == 1) throw new MyException(ErrorType.ERROR, "房源已在上架状态");
+        house.setSalesStatus(1);
+        houseMapper.updateById(house);
+    }
+
+    // ==================== 删除（超管物理删，其他人逻辑删即下架） ====================
+
+    @Override
+    @Transactional
+    public boolean deleteHouse(Integer houseId, Integer userId, Integer userType) {
+        House house = houseMapper.selectById(houseId);
+        if (house == null) throw new MyException(ErrorType.ERROR, "房源不存在");
+        if (userType == 5) {
+            // 超管物理删除
+            return houseMapper.deleteById(houseId) > 0;
+        }
+        // 其他人逻辑删除（下架）
+        house.setSalesStatus(0);
+        return houseMapper.updateById(house) > 0;
+    }
 }
